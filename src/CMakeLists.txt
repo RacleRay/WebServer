@@ -22,6 +22,6 @@
 # endforeach()
 
 
-file(GLOB_RECURSE log_srcs CONFIGURE_DEPENDS ./log/*.cpp)
+file(GLOB_RECURSE log_srcs CONFIGURE_DEPENDS ./logger/*.cpp)
 
-add_executable(server ${log_srcs})
+add_executable(server main.cpp ${log_srcs})
