@@ -65,6 +65,7 @@ _deps
 draft/
 
 # log for perf
+log
 tmp
 *.rdb
 *.svg
