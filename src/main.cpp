@@ -1,15 +1,18 @@
 #include <getopt.h>
 
+#include <cstring>
 #include <iostream>
 #include <string>
 
-#include <Config.h>
+#include "Logger.h"
+#include "ReadConfig.h"
 
 
 int main(int argc, char* argv[]) {
     int nthread = get_nthread();
     int port = get_port();
-    std::string logfile = LOG_FILE;
+    char logfile[32];
+    get_logfile(logfile);
 
     int opt;
     const char* prompts = "n:l:p:";
@@ -20,8 +23,8 @@ int main(int argc, char* argv[]) {
                 break;
             }
             case 'l': {
-                logfile = optarg;
-                if (logfile.size() < 2 || optarg[0] != '/') {
+                memcpy(logfile, optarg, 32);
+                if (strlen(logfile) < 2 || optarg[0] != '/') {
                     std::cerr << "logfile path should start with \"/\"." << std::endl;
                     abort();
                 }
@@ -35,6 +38,8 @@ int main(int argc, char* argv[]) {
             }
         }
     }
+
+    Logger::set_log_file_name(std::string(logfile));
 
     // set logger
 

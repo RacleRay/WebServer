@@ -5,7 +5,15 @@
 #include <cstring>
 #include <syslog.h>
 
-#include <Config.h>
+#include "ReadConfig.h"
+
+
+#define MAX_KEYWORD_LEN 32
+#define MAX_FORMAT_LEN 32
+#define MAX_CONFIG_LINE 512
+
+#define MAXLINE 4096
+
 
 extern "C" {
 
@@ -86,5 +94,9 @@ extern "C" {
 
     int get_port() {
         return strtol(scan_configfile("PORT"), NULL, 10);
+    }
+
+    void get_logfile(char *log_filename) {
+        strcpy(log_filename, scan_configfile("LOGFILE"));
     }
 }

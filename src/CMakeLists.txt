@@ -23,5 +23,18 @@
 
 
 file(GLOB_RECURSE log_srcs CONFIGURE_DEPENDS ./logger/*.cpp)
+file(GLOB_RECURSE file_srcs CONFIGURE_DEPENDS ./file/*.cpp)
+file(GLOB_RECURSE thread_srcs CONFIGURE_DEPENDS ./thread/*.cpp)
 
-add_executable(server main.cpp ${log_srcs})
+
+add_library(serveutils STATIC ${log_srcs} ${file_srcs} ${thread_srcs} ReadConfig.cpp)
+target_link_libraries(serveutils pthread)
+# set_target_properties(serveutils PROPERTIES OUTPUT_NAME "server")
+
+
+add_executable(server main.cpp 
+    ${log_srcs} 
+    ${file_srcs} 
+    ${thread_srcs} 
+    ReadConfig.cpp    
+)

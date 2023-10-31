@@ -12,21 +12,24 @@ class AsyncLogging;
 
 class Logger {
 public:
-    Logger(const char* filename, int line);
+    Logger(const char* code_filename, int line);
     ~Logger();
 
     LogStream& stream() { return m_impl.m_stream; }
+
+    static void set_log_file_name(std::string log_filename) { m_log_filename = std::move(log_filename); }
     static std::string get_log_file_name() { return m_log_filename; }
 
 private:
     class Impl {
     public:
-        Impl(const char* filename, int line);
-        void format_time();
+        Impl(const char* code_filename, int line);
+        void print_format_time();
 
         int m_line;
-        LogStream m_stream;
-        std::string m_filename;
+        std::string m_code_filename;
+
+        LogStream m_stream{};
     };
 
     Impl m_impl;

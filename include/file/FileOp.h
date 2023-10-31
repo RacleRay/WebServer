@@ -2,12 +2,16 @@
 
 #include <string>
 
-#include "Config.h"
 #include "noncopyable.h"
+
+
+// #define FILEOP_BUFFER_SIZE (64 * 1024)
+constexpr int FILEOP_BUFFER_SIZE = 64 * 1024;
 
 
 class FileOpBase: private Noncopyable {
 public:
+    // FileOpBase() = delete;
     explicit FileOpBase(const std::string& filename);
     ~FileOpBase();
 

@@ -4,18 +4,20 @@
 #include <memory>
 #include <pthread.h>
 #include <string>
+#include <sys/prctl.h>
 #include <sys/syscall.h>
 #include <unistd.h>
 
-#include "noncopyable.h"
 #include "CurrentThread.h"
+#include "CountBarrier.h"
+#include "noncopyable.h"
 
 
 class Thread: private Noncopyable {
 public:
     using ThreadFunc = std::function<void()>;
 
-    explicit Thread(const ThreadFunc& func, const std::string& name = std::string());
+    explicit Thread(ThreadFunc func, std::string name = std::string());
     ~Thread();
 
     void start();
@@ -32,23 +34,33 @@ private:
     bool m_started {false};
     bool m_joined {false};
     
-    pthread_t m_pthread_id;
-    pid_t m_tid;
+    pthread_t m_pthread_id {0};
+    pid_t m_tid {0};
 
     ThreadFunc m_func;
     std::string m_name;
 
-    void _set_default_name();
+    CountBarrier m_barrier {1};
 
+    void _set_default_name();
 };
 
 
 struct ThreadData {
+public:
     using ThreadFunc = Thread::ThreadFunc;
 
-    ThreadFunc m_func;
-    std::string m_name;
-    pid_t* m_tid;
-
+    ThreadFunc m_func;   // Thread::m_func is passed to ThreadData::m_func.
+    std::string m_thread_name;
     
+    pid_t* m_tid;
+    CountBarrier* m_barrier;
+
+public:
+    ThreadData(ThreadFunc func, std::string name, pid_t* tid, CountBarrier* barrier)
+        : m_func(std::move(func)), m_thread_name(std::move(name)), m_tid(tid), m_barrier(barrier) {}  
+    
+    // This will notify the waiting procedure (Thread::start), and then run the
+    // ThreadData::m_func (same as Thread::m_func)
+    void run_in_thread() const;    
 };
