@@ -32,8 +32,8 @@ namespace {
 
         data->run_in_thread();  // will notify the waiting created threads.
 
-        data->m_tid = nullptr;
-        data->m_barrier = nullptr;
+        // data->m_tid = nullptr;
+        // data->m_barrier = nullptr;
         delete data;
         return nullptr;
     }

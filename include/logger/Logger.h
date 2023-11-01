@@ -17,7 +17,9 @@ public:
 
     LogStream& stream() { return m_impl.m_stream; }
 
-    static void set_log_file_name(std::string log_filename) { m_log_filename = std::move(log_filename); }
+    static void set_log_file_name(const std::string& log_filename) { 
+        m_log_filename = log_filename; 
+    }
     static std::string get_log_file_name() { return m_log_filename; }
 
 private:
