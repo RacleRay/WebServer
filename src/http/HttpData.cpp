@@ -1,4 +1,8 @@
+
+#include "Channel.h"
+#include "EventLoop.h"
 #include "HttpData.h"
+
 
 
 // ==========================================================================
@@ -37,3 +41,31 @@ std::string MimeType::get_mime_type(const std::string &suffix) {
 
 // ==========================================================================
 // HttpData
+
+HttpData::HttpData(EventLoop *loop, int connfd)
+    : m_event_loop(loop), m_connfd(connfd), 
+      m_channel(new Channel(loop, connfd)) {
+   m_channel->set_read_handler([this](){handle_read();});
+   m_channel->set_write_handler([this](){handle_write();});
+   m_channel->set_conn_handler([this](){handle_connect();});
+}
+
+
+void HttpData::reset() {
+    m_filename.clear();
+    m_path.clear();
+    m_read_pos = 0;
+
+    m_headers.clear();
+    m_process_state = ProcessState::STATE_PARSE_URI;
+    m_parse_state = ParseState::H_START;
+
+    // clear weak_ptr
+    if (m_timer.lock()) {
+        std::shared_ptr<TimerNode> tmp_timer(m_timer.lock());
+        tmp_timer->clear_request();
+        m_timer.reset();
+    }
+}
+
+

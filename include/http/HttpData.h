@@ -69,12 +69,12 @@ public:
 class HttpData : public std::enable_shared_from_this<HttpData> {
 public:
     HttpData(EventLoop *loop, int connfd);
-    ~HttpData();
+    ~HttpData() { close(m_connfd); }
     
     void reset();
 
     void seperate_timer();
-    void link_timer(std::shared_ptr<TimerNode> timer) {
+    void link_timer(const std::shared_ptr<TimerNode>& timer) {
         m_timer = timer;
     };
 
@@ -95,8 +95,29 @@ private:
     HeaderState parse_headers();
     AnalysisState analysis_request();
 
+    std::string m_in_buf;
+    std::string m_out_buf;
+
+    std::string m_filename;
+    std::string m_path;
+
     std::weak_ptr<TimerNode> m_timer;
     std::shared_ptr<Channel> m_channel;
 
     EventLoop* m_event_loop;
+    int m_connfd;
+
+    int m_read_pos{0};
+
+    bool m_error{false};
+    bool m_keep_alive{false};
+
+    ConnectionState m_connection_state{ConnectionState::H_CONNECTED};    
+    HttpMethod m_method{HttpMethod::METHOD_GET};
+    HttpVersion m_http_version{HttpVersion::HTTP_11};
+    
+    ProcessState m_process_state{ProcessState::STATE_PARSE_URI};
+    ParseState m_parse_state{ParseState::H_START};
+
+    std::map<std::string, std::string> m_headers;
 };

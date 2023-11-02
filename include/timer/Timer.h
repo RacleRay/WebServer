@@ -53,7 +53,7 @@ public:
     TimerManager() = default;
     ~TimerManager() = default;
 
-    void add_timer(std::shared_ptr<HttpData> request_data_sp, int timeout);
+    void add_timer(const std::shared_ptr<HttpData>& request_data_sp, int timeout);
     void handle_expired_event();
 
 private:
