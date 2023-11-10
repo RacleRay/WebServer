@@ -23,4 +23,6 @@ void Channel::handle_events() {
     if (m_revents & EPOLLOUT) {
         handle_write();
     }
+
+    handle_connect();
 }

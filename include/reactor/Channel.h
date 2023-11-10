@@ -20,7 +20,7 @@ private:
     EventLoop* m_event_loop;
     int m_fd{0};
 
-    uint32_t m_events{0};
+    uint32_t m_events{0};  // 初始值会由使用Channel的调用者设置
     uint32_t m_revents{0};  // returned from epoll_wait()
     uint32_t m_last_events{0}; // previous revents
 
@@ -67,15 +67,17 @@ public:
         _error_handler = std::move(cb);
     }
 
+    // 准备 add 到 epoll 的 events
     void set_events(uint32_t ev) noexcept {
         m_events = ev;
     }
 
+    // epoll wait 返回后得到的 revents 
     void set_revents(uint32_t rev) noexcept {
         m_revents = rev;
     }
 
-    [[nodiscard]] uint32_t get_events() const noexcept {
+    [[nodiscard]] uint32_t &get_events() noexcept {
         return m_events;
     }
 
@@ -87,7 +89,7 @@ public:
         m_last_events = m_events;
     }
 
-    [[nodiscard]] bool is_events_lastevents() const noexcept {
+    [[nodiscard]] bool is_events_sameas_last() const noexcept {
         return (m_last_events == m_events);
     }
 

@@ -73,7 +73,7 @@ public:
     
     void reset();
 
-    void seperate_timer();
+    void detach_timer();
     void link_timer(const std::shared_ptr<TimerNode>& timer) {
         m_timer = timer;
     };
@@ -89,7 +89,7 @@ private:
     void handle_read();
     void handle_write();
     void handle_connect();
-    void handle_error();
+    void handle_error(int fd, int err_num, std::string short_msg);
 
     URIState parse_URI();
     HeaderState parse_headers();

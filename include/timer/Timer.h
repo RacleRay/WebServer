@@ -28,7 +28,8 @@ public:
     bool is_valid();
 
     void update(int timeout);
-    void clear_request();
+    // clear m_http_data_sp, set node waiting to be deleted.
+    void invalidate_timer();
     
     void set_deleted() noexcept { m_deleted = true; }
     [[nodiscard]] bool is_deleted() const noexcept { return m_deleted; }

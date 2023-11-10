@@ -44,7 +44,7 @@ bool TimerNode::is_valid() {
 }
 
 
-void TimerNode::clear_request() {
+void TimerNode::invalidate_timer() {
     m_http_data_sp.reset();
     this->set_deleted();
 }
