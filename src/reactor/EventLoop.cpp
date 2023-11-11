@@ -6,6 +6,8 @@
 #include "Logger.h"
 #include "Utils.h"
 
+#include "Debug.h"
+
 __thread EventLoop *thread_eventloop = nullptr;
 
 int create_eventfd() {
@@ -29,8 +31,8 @@ EventLoop::EventLoop()
     }
 
     m_wakeup_channel->set_events(EPOLLIN | EPOLLET);
-    m_wakeup_channel->set_read_handler([this]() {handle_read();});
-    m_wakeup_channel->set_conn_handler([this]() {handle_connection();});
+    m_wakeup_channel->set_read_handler([this]() {this->handle_read();});
+    m_wakeup_channel->set_conn_handler([this]() {this->handle_connection();});
 
     // no timer
     m_poller->epoll_add(m_wakeup_channel, 0);
@@ -39,7 +41,7 @@ EventLoop::EventLoop()
 
 EventLoop::~EventLoop() {
     close(m_wakeup_fd);
-    m_wakeup_channel.reset();
+    // m_wakeup_channel.reset();
     thread_eventloop = nullptr;
 }
 
@@ -50,11 +52,13 @@ void EventLoop::handle_read() {
     if (n != sizeof(one)) {
         LOG << "EventLoop::handleRead() reads " << n << " bytes instead of 8";
     }
+    // queue_in_loop 通过 wakeup 唤醒
     m_wakeup_channel->set_events(EPOLLIN | EPOLLET);
 }
 
 
 void EventLoop::handle_connection() {
+    PRINT("Event Loop wakeup event for fd " << m_wakeup_fd);
     modify_poller(m_wakeup_channel, 0);
 }
 
@@ -73,20 +77,26 @@ void EventLoop::wakeup() {
  * @brief 这里需要明确的点在于: 每个线程有一个EventLoop，但是当前运行的线程不一定是某个EventLoop
         所在的线程。每个EventLoop一般都阻塞在 epoll_wait 等待事件。
         如果当前运行线程对应于EventLoop所属线程，callback 会在线程上串行执行。
-        如果当前运行线程不是EventLoop所属线程，callback 会被加入队列，并通过 eventfd 唤醒
-        在 epoll_wait 上等待的线程。
+        如果当前运行线程不是EventLoop所属线程，callback 会被加入队列，运行 callback 还是在注册事件
+        的 EventLoop 线程上串行执行。
+        通过 eventfd 唤醒在 epoll_wait 上等待的线程。
  * 
- * @param cb 
  */
-void EventLoop::run_in_loop(Functor&& cb) {
-    if (is_in_loop_thread()) {
-        cb();
-    } else {
-        queue_in_loop(std::move(cb));
-    }
-}
 
 
+// 只在 HttpData::handle_connect 中处理 handle_close 使用，但是应该可以有其他用处
+// 但是这个只针对 handle_close 的设计，实际上增加了负载，和不必要的线程开销，真的没有必要
+// 没啥实际提升的设计
+// void EventLoop::run_in_loop(Functor&& cb) {
+//     if (is_in_loop_thread()) {
+//         cb();
+//     } else {
+//         queue_in_loop(std::move(cb));
+//     }
+// }
+
+
+// 重要！！！使用 pending 队列和 eventfd 异步唤醒，不阻塞 accept 建立连接的过程
 void EventLoop::queue_in_loop(Functor&& cb) {
     {
         MutexGuard lock(m_mutex);
@@ -108,12 +118,13 @@ void EventLoop::loop() {
     std::vector<std::shared_ptr<Channel>> active_channels;
     while (!m_is_quit) {
         active_channels.clear();
+        // 这一步将会把，epoll_wait 监控到的事件保存到 revents 中
         active_channels = m_poller->get_active_events();
         
-        // handle events 
+        // handle revents 处理
         m_is_event_handling = true;
         for (auto& it: active_channels) {
-            it->handle_events();
+            it->handle_revents();
         }
         m_is_event_handling = false;
 
@@ -125,7 +136,6 @@ void EventLoop::loop() {
     }
 
     m_is_looping = false;
-    m_is_quit = true;
 }
 
 

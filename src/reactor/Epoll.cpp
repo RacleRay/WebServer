@@ -12,8 +12,16 @@
 #include "Logger.h"
 #include "Utils.h"
 
+#include "Debug.h"
 
+
+const int EVENTS_NUM = 4096;
 const int EPOLLWAIT_TIME = 10'000;
+
+
+Epoll::Epoll() : m_epoll_fd(epoll_create1(EPOLL_CLOEXEC)), m_events_buf(EVENTS_NUM) {
+    assert(m_epoll_fd > 0);
+}
 
 
 // 每个一个连接描述符，对应一个 Channel，描述符由 epoll 监控
@@ -28,11 +36,9 @@ void Epoll::epoll_add(std::shared_ptr<Channel> req_channel, int timeout) {
 
     struct epoll_event event;
     event.data.fd = fd;
-    event.events = req_channel->get_events();
-
-    if (!req_channel->is_events_sameas_last()) {
-        req_channel->updata_last_events();
-    }
+    event.events = req_channel->get_events();  // 注册 m_events 到epoll中
+    // req_channel->updata_last_events();
+    req_channel->compare_and_updata_last_evt();
 
     m_fd2channels[fd] = req_channel;
     int ret = epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, fd, &event);
@@ -50,10 +56,8 @@ void Epoll::epoll_mod(std::shared_ptr<Channel> req_channel, int timeout) {
 
     int fd = req_channel->get_fd();
     // events 会在 collect_active_channels 中更新，表示 Epoll 已经处理了事件
-    // revents 记录此次响应的事件，用于判断是否需要更改事件
-    // 如果 revents 与 events 不同，表示需要改变注册的事件
-    if (!req_channel->is_events_sameas_last()) {
-        req_channel->updata_last_events();
+    if (!req_channel->compare_and_updata_last_evt()) {
+        // req_channel->updata_last_events();
         struct epoll_event event;
         event.data.fd = fd;
         event.events = req_channel->get_events();
@@ -71,7 +75,7 @@ void Epoll::epoll_del(std::shared_ptr<Channel> req_channel) {
 
     struct epoll_event event;
     event.data.fd = fd;
-    event.events = req_channel->get_events();
+    event.events = req_channel->get_lastevents();  // 已将 m_events 保存到 m_lastevents
     int ret = epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fd, &event);
     if (ret < 0) {
         perror("epoll_del failed.");
@@ -83,6 +87,7 @@ void Epoll::epoll_del(std::shared_ptr<Channel> req_channel) {
 
 std::vector<std::shared_ptr<Channel>> Epoll::get_active_events() {
     while (true) {
+        PRINT("epoll_wait on " << m_epoll_fd << ". " << "epoll buf size " << m_events_buf.size());
         int event_count = epoll_wait(m_epoll_fd, &*m_events_buf.begin(), m_events_buf.size(), EPOLLWAIT_TIME);
         if (event_count < 0) {
             perror("epoll_wait failed.");
@@ -100,11 +105,14 @@ std::vector<std::shared_ptr<Channel>> Epoll::collect_active_channels(int event_c
     for (int i = 0; i < event_count; ++i) {
         int fd = m_events_buf[i].data.fd;
         std::shared_ptr<Channel> req_channel = m_fd2channels[fd];
+        PRINT("active epoll fd: " << fd);
+        PRINT("active channel event is : " << req_channel->get_events());
         if (!req_channel) {
             LOG << "Epoll::get_active_channels: shared_ptr req_channel is nullptr.";
         } else {
+            // epoll wait 活跃事件
             req_channel->set_revents(m_events_buf[i].events);
-            req_channel->set_events(0);
+            req_channel->set_events(0);   // 已响应，重置
             active_channels.push_back(req_channel);
         }
     }

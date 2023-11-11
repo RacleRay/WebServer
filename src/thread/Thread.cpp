@@ -54,7 +54,7 @@ void CurrentThread::cache_tid() {
 
 Thread::Thread(ThreadFunc func, std::string name)
     : m_func(std::move(func)), m_name(std::move(name)) {
-    _set_default_name();
+    pr_set_default_name();
 }
 
 
@@ -66,7 +66,7 @@ Thread::~Thread() {
 
 
 // set default thread name to be Thread-<thread_id>
-void Thread::_set_default_name() {
+void Thread::pr_set_default_name() {
     if (!m_name.empty()) {
         return;
     }

@@ -11,13 +11,10 @@
 #include "Timer.h"
 
 
-#define EVENTS_NUM 4096
 
 class Epoll {
 public:
-    Epoll() : m_epoll_fd(epoll_create1(EPOLL_CLOEXEC)), m_events_buf(EVENTS_NUM) {
-        assert(m_epoll_fd > 0);
-    };
+    Epoll();
     ~Epoll() = default;
 
     // epoll event management

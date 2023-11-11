@@ -4,8 +4,11 @@
 #include <iostream>
 #include <string>
 
+#include "EventLoop.h"
 #include "Logger.h"
 #include "ReadConfig.h"
+#include "Server.h"
+#include "Debug.h"
 
 
 int main(int argc, char* argv[]) {
@@ -40,16 +43,16 @@ int main(int argc, char* argv[]) {
     }
 
     Logger::set_log_file_name(std::string(logfile));
-
-    // set logger
-
+    
     // init main loop
-
+    EventLoop main_loop;
     // init server
-
+    Server server(&main_loop, nthread, port);
     // start server
-
+    PRINT("start server...");
+    server.start();
     // run event loop
+    main_loop.loop();
 
     return 0;
 }

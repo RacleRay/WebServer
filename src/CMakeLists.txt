@@ -25,6 +25,11 @@
 file(GLOB_RECURSE log_srcs CONFIGURE_DEPENDS ./logger/*.cpp)
 file(GLOB_RECURSE file_srcs CONFIGURE_DEPENDS ./file/*.cpp)
 file(GLOB_RECURSE thread_srcs CONFIGURE_DEPENDS ./thread/*.cpp)
+file(GLOB_RECURSE reactor_srcs CONFIGURE_DEPENDS ./reactor/*.cpp)
+file(GLOB_RECURSE http_srcs CONFIGURE_DEPENDS ./http/*.cpp)
+file(GLOB_RECURSE server_srcs CONFIGURE_DEPENDS ./server/*.cpp)
+file(GLOB_RECURSE utils_srcs CONFIGURE_DEPENDS ./utils/*.cpp)
+file(GLOB_RECURSE timer_srcs CONFIGURE_DEPENDS ./timer/*.cpp)
 
 
 add_library(serveutils STATIC ${log_srcs} ${file_srcs} ${thread_srcs} ReadConfig.cpp)
@@ -35,6 +40,11 @@ target_link_libraries(serveutils pthread)
 add_executable(server main.cpp 
     ${log_srcs} 
     ${file_srcs} 
-    ${thread_srcs} 
+    ${thread_srcs}
+    ${reactor_srcs} 
+    ${http_srcs} 
+    ${server_srcs} 
+    ${utils_srcs}
+    ${timer_srcs} 
     ReadConfig.cpp    
 )

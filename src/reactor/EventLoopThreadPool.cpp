@@ -1,4 +1,5 @@
 #include "EventLoopThreadPool.h"
+#include "Debug.h"
 
 
 EventLoopThreadPool::EventLoopThreadPool(EventLoop *base_loop, int num_threads) 
@@ -19,6 +20,7 @@ void EventLoopThreadPool::start() {
         std::shared_ptr<EventLoopThread> t(new EventLoopThread());
         m_threads.push_back(t);
         m_evtloops.push_back(t->start_loop());
+        PRINT("startint event loop thread " << i);
     }
 }
 
@@ -32,6 +34,7 @@ EventLoop* EventLoopThreadPool::get_next_loop() {
     EventLoop* loop = m_base_loop;
     if (!m_evtloops.empty()) {
         loop = m_evtloops[m_next_idx];
+        PRINT("get event loop " << m_next_idx);
         m_next_idx = (m_next_idx + 1) % m_num_threads;
     }
 

@@ -5,7 +5,8 @@
 // TimerNode
 
 TimerNode::TimerNode(std::shared_ptr<HttpData> request_data_sp, int timeout)
-    : m_http_data_sp(request_data_sp) {
+    : m_http_data_sp(request_data_sp) 
+{
     struct timeval now;
     gettimeofday(&now, nullptr);
     m_expire_time = (now.tv_sec % 10'000 ) * 1000 + now.tv_usec / 1000 + timeout;
@@ -19,10 +20,8 @@ TimerNode::~TimerNode() {
 }
 
 
-TimerNode::TimerNode(const TimerNode &tn) {
-    m_http_data_sp = tn.m_http_data_sp;
-    m_expire_time = tn.m_expire_time;
-}
+TimerNode::TimerNode(const TimerNode &tn)
+    : m_http_data_sp(tn.m_http_data_sp), m_expire_time(tn.m_expire_time) {} 
 
 
 void TimerNode::update(int timeout) {
@@ -63,7 +62,8 @@ void TimerManager::add_timer(const std::shared_ptr<HttpData>& request_data_sp, i
 void TimerManager::handle_expired_event() {
     while (!m_timer_queue.empty()) {
         TimerNodeSP top_node_sp = m_timer_queue.top();
-        if (!top_node_sp->is_valid() || top_node_sp->is_deleted()) {
+        if (top_node_sp->is_deleted() || !top_node_sp->is_valid()) {
+            top_node_sp.reset();
             m_timer_queue.pop();
         } else {
             break;

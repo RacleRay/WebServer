@@ -6,9 +6,11 @@
 #include "EventLoop.h"
 #include "HttpData.h"
 
+#include "Debug.h"
+
 
 // ONESHOT :  after an event is received for that file descriptor, it will be automatically removed from the  epoll  interest list.
-constexpr uint32_t DEFAULT_EVENT = EPOLLIN | EPOLLET | EPOLLONESHOT;
+constexpr uint32_t HTTP_DEFAULT_EVENT = EPOLLIN | EPOLLET | EPOLLONESHOT;
 constexpr int EXPIRED_TIME = 2000;  // ms
 constexpr int KEEP_ALIVE_TIME = 5 * 60 * 1000;  // ms
 
@@ -16,7 +18,7 @@ constexpr int KEEP_ALIVE_TIME = 5 * 60 * 1000;  // ms
 // ==========================================================================
 // MimeType
 
-const std::unordered_map<std::string, std::string> mime{
+const std::unordered_map<std::string, std::string> MimeType::mime{
     {".html", "text/html"},
     {".css", "text/css"},
     {".js", "application/javascript"},
@@ -53,10 +55,12 @@ std::string MimeType::get_mime_type(const std::string &suffix) {
 HttpData::HttpData(EventLoop *loop, int connfd)
     : m_event_loop(loop), m_connfd(connfd), 
       m_channel(new Channel(loop, connfd)) {
-   m_channel->set_read_handler([this](){handle_read();});
-   m_channel->set_write_handler([this](){handle_write();});
-   m_channel->set_conn_handler([this](){handle_connect();});
-   m_channel->set_owner_http(shared_from_this());
+    m_channel->set_read_handler([this](){handle_read();});
+    m_channel->set_write_handler([this](){handle_write();});
+    m_channel->set_conn_handler([this](){handle_connect();});
+   
+    // shared_from_this() 需要在 shared_ptr 构造完成之后使用
+    // m_channel->set_owner_http(shared_from_this());
 }
 
 
@@ -76,15 +80,15 @@ void HttpData::reset() {
 void HttpData::detach_timer() {
     // clear weak_ptr
     if (m_timer.lock()) {
-        std::shared_ptr<TimerNode> tmp_timer(m_timer.lock());
-        tmp_timer->invalidate_timer();
+        std::shared_ptr<TimerNode> del_timer(m_timer.lock());
+        del_timer->invalidate_timer();
         m_timer.reset();
     }
 }
 
 
 void HttpData::add_new_event() {
-    m_channel->set_events(DEFAULT_EVENT);
+    m_channel->set_events(HTTP_DEFAULT_EVENT);
     m_event_loop->add_to_poller(m_channel, EXPIRED_TIME);
 }
 
@@ -145,13 +149,14 @@ void HttpData::handle_read() {
             goto out;
         }
 
-        if (m_method == HttpMethod::METHOD_GET) {
+        if (m_method == HttpMethod::METHOD_POST) {
             m_process_state = ProcessState::STATE_RECV_BODY;
         } else {
             m_process_state = ProcessState::STATE_ANALYSIS;
         }
     }
 
+    // prepare for post analysis, but not supported indead.
     if (m_process_state == ProcessState::STATE_RECV_BODY) {
         int content_length = -1;
         if (m_headers.find("Content-Length") != m_headers.end()) {
@@ -159,7 +164,7 @@ void HttpData::handle_read() {
         } else {
             m_error = true;
             handle_error(m_connfd, 400, "Bad Request: Content-Length not find");
-            goto out; 
+            goto out;
         }
         if (static_cast<int>(m_in_buf.size()) < content_length) {
             goto out;
@@ -179,6 +184,7 @@ void HttpData::handle_read() {
     }
 
 out:
+    // 很烂的代码，真的
     if (!m_error) {
         if (!m_out_buf.empty()) {
             handle_write();
@@ -187,11 +193,18 @@ out:
         // 可能在 handle_write 改变了 m_error
         if (!m_error && m_process_state == ProcessState::STATE_FINISH) {
             this->reset();
+            // // 检查未读完数据
+            // if (!m_in_buf.empty() 
+            //     && m_connection_state == ConnectionState::H_CONNECTED) {
+            //     handle_read();
+            // }
         // 注册 EPOLLIN
         } else if (!m_error && m_connection_state != ConnectionState::H_DISCONNECTED) {
             events |= EPOLLIN;
         }
     }
+
+    // 如果出错，会在 handle_connent 处理
 }
 
 
@@ -206,47 +219,90 @@ void HttpData::handle_write() {
         if (!m_out_buf.empty()) {
             events |= EPOLLOUT;
         }
+        if (m_out_buf.empty() && !m_keep_alive && !m_closed) {
+            m_closed = true;
+            shutdown_WR(m_channel->get_fd());
+        }
     }
 }
 
 
 void HttpData::handle_connect() {
-    int timeout = EXPIRED_TIME;
-    detach_timer();
+    detach_timer();  // 这个会在 timer 的 invalide_timer 中，将 HttpData指针重置
 
     uint32_t &events = m_channel->get_events();
+    PRINT("Handle connetion. events is " << events);
+
+    // ConnectionState 三种状态 H_CONNECTED, H_DISCONNECTING, H_DISCONNECTED
     if (!m_error && m_connection_state == ConnectionState::H_CONNECTED) {
-        if (events != 0) {
-            if ((events & EPOLLIN) && (events & EPOLLOUT)) {
-                events = static_cast<uint32_t>(0);
-                events |= EPOLLOUT;
-            }
+        if (events != 0) {   // 不为零，表示还没有处理事件
+            int timeout = EXPIRED_TIME; 
             // NOTE: keep alive setting
             if (m_keep_alive) {
                 timeout = KEEP_ALIVE_TIME;
             }
+
+            if ((events & EPOLLIN) && (events & EPOLLOUT)) {
+                events = static_cast<uint32_t>(0);
+                events |= EPOLLOUT;
+            }
+            
             events |= EPOLLET;
+            // 修改事件后，再次主动触发事
+            // 注意 默认注册的初始事件，是包含 EPOLLONESHOT 的
             m_event_loop->modify_poller(m_channel, timeout);
         } else if (m_keep_alive) {
             events |= (EPOLLIN | EPOLLET);
-            timeout = KEEP_ALIVE_TIME;
+            int timeout = KEEP_ALIVE_TIME;
             m_event_loop->modify_poller(m_channel, timeout);
-        } else {
+        } else {  // 不是 keep alive 的，但是 connect 了已经建立的连接，更新 timeout
             events |= (EPOLLIN | EPOLLET);
+            int timeout = (KEEP_ALIVE_TIME >> 1);
             m_event_loop->modify_poller(m_channel, timeout);
         }
-    } else if (!m_error && m_connection_state == ConnectionState::H_DISCONNECTING 
-               && (events & EPOLLOUT)) {
+    } else if (!m_error 
+               && m_connection_state == ConnectionState::H_DISCONNECTING 
+               && (events & EPOLLOUT)) { 
         events = (EPOLLOUT | EPOLLET);  // 关闭中，发送剩余数据
     } else {
-        m_event_loop->run_in_loop([this]() { handle_close(); });
-    }
+        // m_event_loop->run_in_loop([this](){this->handle_close();});  // 这里实际增加了负载，真的没有必要
+        handle_close();
+    } 
+}
+
+
+void HttpData::handle_error(int fd, int err_num, std::string short_msg) {
+    short_msg = " " + short_msg;
+    char send_buff[4096];
+    std::string body_buff, header_buff;
+    body_buff += "<html><title>HTTP ERROR</title>";
+    body_buff += "<body bgcolor=\"ffffff\">";
+    body_buff += std::to_string(err_num) + short_msg;
+    body_buff += "<hr><em> Static Web Server</em>\n</body></html>";
+
+    header_buff += "HTTP/1.1 " + std::to_string(err_num) + short_msg + "\r\n";
+    header_buff += "Content-Type: text/html\r\n";
+    header_buff += "Connection: Close\r\n";
+    header_buff += "Content-Length: " + std::to_string(body_buff.size()) + "\r\n";
+    header_buff += "Server: Static Web Server\r\n";
+    header_buff += "\r\n";
+
+    // 错误处理不考虑writen是否传送完
+    (void)sprintf(send_buff, "%s", header_buff.c_str());
+    writen(fd, send_buff, strlen(send_buff));
+    (void)sprintf(send_buff, "%s", body_buff.c_str());
+    writen(fd, send_buff, strlen(send_buff));
 }
 
 
 void HttpData::handle_close() {
     m_connection_state = ConnectionState::H_DISCONNECTED;
+    std::shared_ptr<HttpData> guard(shared_from_this());   // 防止 reset 指针时出错
     m_event_loop->remove_from_poller(m_channel);
+    if (!m_closed) {
+        shutdown_WR(m_channel->get_fd());
+    }
+    // 此时由 guard 的析构，close(m_connfd)
 }
 
 
@@ -465,7 +521,7 @@ AnalysisState HttpData::analysis_request() {
         // find filetype
         size_t dot_pos = m_filename.find('.');
         std::string filetype;
-        if (dot_pos < 0) {
+        if (dot_pos == std::string::npos) {
             filetype = MimeType::get_mime_type("default");
         } else {
             filetype = MimeType::get_mime_type(m_filename.substr(dot_pos));
@@ -473,7 +529,9 @@ AnalysisState HttpData::analysis_request() {
 
         // if filename for test
         if (m_filename == "hellotest") {
-            m_out_buf = "HTTP/1.1 200 OK\r\nContent-type: text/plain\r\n\r\nHello World";
+            m_out_buf = "HTTP/1.1 200 OK\r\nContent-type: text/plain\r\n";
+            m_out_buf += "Content-Length: 10\r\n\r\n";
+            m_out_buf += "Hello Test";
             return AnalysisState::ANALYSIS_SUCCESS;
         }
 

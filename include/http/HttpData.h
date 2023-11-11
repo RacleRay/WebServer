@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 #include <sys/epoll.h>
+#include <sys/socket.h>
 #include <unistd.h>
 #include <unordered_map>
 
@@ -69,7 +70,10 @@ public:
 class HttpData : public std::enable_shared_from_this<HttpData> {
 public:
     HttpData(EventLoop *loop, int connfd);
-    ~HttpData() { close(m_connfd); }
+    ~HttpData() {
+        shutdown(m_connfd, SHUT_RDWR);
+        close(m_connfd);
+    }
     
     void reset();
 
@@ -94,6 +98,8 @@ private:
     URIState parse_URI();
     HeaderState parse_headers();
     AnalysisState analysis_request();
+
+    bool m_closed{false};
 
     std::string m_in_buf;
     std::string m_out_buf;
@@ -121,3 +127,4 @@ private:
 
     std::map<std::string, std::string> m_headers;
 };
+

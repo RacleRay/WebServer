@@ -21,9 +21,9 @@ public:
 
     TimerNode(const TimerNode &tn);
 
-    std::shared_ptr<TimerNode> get_shared() {
-        return shared_from_this();
-    }
+    // std::shared_ptr<TimerNode> get_shared() {
+    //     return shared_from_this();
+    // }
 
     bool is_valid();
 

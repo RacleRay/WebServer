@@ -18,7 +18,7 @@ void type_test() {
     cout << "----------type test-----------" << endl;
     LOG << 0;
     LOG << 1234567890123;
-    LOG << 1.0F;
+    LOG << 1.0f;
     LOG << 3.1415926;
     LOG << (short)1;
     LOG << (long long)1;
@@ -56,17 +56,18 @@ void format_test() {
 }
 
 int main() {
-    // 共500014行
+    // 5 个 99999
     type_test();
     sleep(3);
 
     stressing_single_thread();
     sleep(3);
 
+    format_test();
+    sleep(3);
+
     stressing_multi_threads();
     sleep(3);
 
-    format_test();
-    sleep(3);
     return 0;
 }

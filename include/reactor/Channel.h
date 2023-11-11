@@ -20,16 +20,19 @@ private:
     EventLoop* m_event_loop;
     int m_fd{0};
 
-    uint32_t m_events{0};  // 初始值会由使用Channel的调用者设置
+    // 初始值会由使用Channel的调用者设置，Server::handle_available_connfd 中 accept 后，
+    // 新 Http 连接的 m_events 调用 HttpData::add_new_event 设置初始值
+    // Http 负责设置 Http 的事件，这很 nice
+    uint32_t m_events{0};
     uint32_t m_revents{0};  // returned from epoll_wait()
-    uint32_t m_last_events{0}; // previous revents
+    uint32_t m_last_events{0}; // 上一个 epoll_add 的监听事件
 
     std::weak_ptr<HttpData> m_owner_http;
 
-    Callback _read_handler;
-    Callback _write_handler;
-    Callback _conn_handler;
-    Callback _error_handler;
+    Callback pr_read_handler;
+    Callback pr_write_handler;
+    Callback pr_conn_handler;
+    Callback pr_error_handler;
 
 public:
     explicit Channel(EventLoop* loop): m_event_loop(loop) {};
@@ -46,25 +49,26 @@ public:
     void set_owner_http(const std::shared_ptr<HttpData>& owner) noexcept {
         m_owner_http = owner;
     }
+    
     std::shared_ptr<HttpData> get_owner_http() {
         std::shared_ptr<HttpData> ret{m_owner_http.lock()};
         return ret;
     }
 
     void set_read_handler(Callback&& cb) noexcept {
-        _read_handler = std::move(cb);
+        pr_read_handler = std::move(cb);
     }
 
     void set_write_handler(Callback&& cb) noexcept {
-        _write_handler = std::move(cb);
+        pr_write_handler = std::move(cb);
     }
 
     void set_conn_handler(Callback&& cb) noexcept {
-        _conn_handler = std::move(cb);
+        pr_conn_handler = std::move(cb);
     }
 
     void set_error_handler(Callback&& cb) noexcept {
-        _error_handler = std::move(cb);
+        pr_error_handler = std::move(cb);
     }
 
     // 准备 add 到 epoll 的 events
@@ -77,7 +81,7 @@ public:
         m_revents = rev;
     }
 
-    [[nodiscard]] uint32_t &get_events() noexcept {
+    uint32_t &get_events() noexcept {
         return m_events;
     }
 
@@ -85,37 +89,35 @@ public:
         return m_last_events;
     }
 
-    void updata_last_events() noexcept {
+    bool compare_and_updata_last_evt() noexcept {
+        bool is_same = (m_last_events == m_events);
         m_last_events = m_events;
+        return is_same;
     }
 
-    [[nodiscard]] bool is_events_sameas_last() const noexcept {
-        return (m_last_events == m_events);
-    }
-
-    void handle_read() const {
-        if (_read_handler) {
-            _read_handler();
+    void handle_read() {
+        if (pr_read_handler) {
+            pr_read_handler();
         }
     }
 
-    void handle_write() const {
-        if (_write_handler) {
-            _write_handler();
+    void handle_write() {
+        if (pr_write_handler) {
+            pr_write_handler();
         }
     }
 
-    void handle_connect() const {
-        if (_conn_handler) {
-            _conn_handler();
+    void handle_connect() {
+        if (pr_conn_handler) {
+            pr_conn_handler();
         }
     }
 
-    void handle_error() const {
-        if (_error_handler) {
-            _error_handler();
+    void handle_error() {
+        if (pr_error_handler) {
+            pr_error_handler();
         }
     }
 
-    void handle_events();
+    void handle_revents();
 };

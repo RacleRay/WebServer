@@ -5,7 +5,7 @@
 #include "Channel.h"
 #include "EventLoop.h"
 #include "EventLoopThreadPool.h"
-
+#include "Debug.h"
 
 class Server {
 public:
@@ -25,8 +25,8 @@ private:
     int m_port;
     int m_listen_fd;
 
-    static const int MAXFDS = 10000;
+    static const int MAXFDS = 100'000;
 
-    std::unique_ptr<EventLoopThreadPool> m_evt_loop_th_pool_uptr;
-    std::shared_ptr<Channel> m_accept_channel_sptr;
+    std::unique_ptr<EventLoopThreadPool> m_evt_loop_th_pool;
+    std::shared_ptr<Channel> m_accept_channel;
 };

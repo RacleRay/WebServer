@@ -43,7 +43,7 @@ public:
     void shift_from_current(size_t len) { m_cur_pos += len; }
 
     void reset() { m_cur_pos = m_data; }
-    // void bzero() { memset(static_cast<void*>(begin()), 0, SIZE); }
+    void bzero() { memset(static_cast<void*>(const_cast<char *>(begin())), 0, SIZE); }
 
 private:
     // [[nodiscard]], which is a C++11 feature. 

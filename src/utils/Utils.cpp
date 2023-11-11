@@ -13,6 +13,7 @@
 
 constexpr int MAX_BUF = 4096;
 
+
 /**
  * @brief fd 是阻塞模式还是非阻塞模式，错误码的含义不同。需要分开分析。 
 
@@ -205,24 +206,24 @@ int set_socket_nonblock(int fd) {
     int flag = fcntl(fd, F_GETFL, 0);
     if (flag < 0) { return flag; }
     flag |= O_NONBLOCK;
-    return fcntl(fd, F_SETFL, flag);
+    return (fcntl(fd, F_SETFL, flag));
 }
 
 
 // Disable the Nagle's algorithm.
 void set_socket_nodelay(int fd) {
     int enable = 1;
-    setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable));
+    setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (void*)&enable, sizeof(enable));
 }
 
 
-// Linger time: the amount of time the socket will remain open after calling close() .
+// Linger time: the amount of time that the socket will remain open after calling close() .
 // For sending the unsent data.
 void set_socket_nolinger(int fd) {
     struct linger ling;
     ling.l_onoff = 1;  // enable
     ling.l_linger = 30;  // 30 seconds
-    setsockopt(fd, SOL_SOCKET, SO_LINGER, &ling, sizeof(ling));
+    setsockopt(fd, SOL_SOCKET, SO_LINGER, (const char *)&ling, sizeof(ling));
 }
 
 

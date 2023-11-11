@@ -42,7 +42,7 @@ private:
 
     CountBarrier m_barrier {1};
 
-    void _set_default_name();
+    void pr_set_default_name();
 };
 
 

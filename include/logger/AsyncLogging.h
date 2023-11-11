@@ -16,7 +16,7 @@
  */
 class AsyncLogging: private Noncopyable {
 public:
-    explicit AsyncLogging(const std::string& filename, int flush_buf_timeout = 60);
+    explicit AsyncLogging(const std::string& filename, int flush_buf_timeout = 2);
     ~AsyncLogging() {
         if (m_is_running) {
             stop();
@@ -42,7 +42,7 @@ private:
     const int m_flush_buf_timeout;
     std::string m_filename;
 
-    Thread m_thread{[this]()->void {thread_func();}, "Logging"};
+    Thread m_thread{[this]()->void {this->thread_func();}, "Logging"};
     Mutex m_mutex{};
     Condition m_cond{m_mutex};
 
