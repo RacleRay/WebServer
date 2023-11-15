@@ -24,7 +24,7 @@ private:
     int m_count { 0 };
 
     // TODO: unique_ptr ? no need 
-    Mutex m_mutex{};
+    mutable Mutex m_mutex{};
     std::unique_ptr<FileOpBase> m_file;
 
     // 这只是该类的私有资源，直接在类实例中作为成员也可以

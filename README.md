@@ -1,6 +1,6 @@
 # Simple web Server
 
-- One loop per thread，每个线程一个处理连接的业务逻辑，多线程+非阻塞IO多路复用
+- One loop per thread，每个线程一个处理连接的业务逻辑，多线程+非阻塞IO多路复用，这么做也有效地处理了惊群效应的发生
 - eventfd 异步唤醒对等线程处理线程独占的任务队列中的回调函数
 - 相比这位朋友的 [WebServer](https://github.com/linyacool/WebServer) 优化了网络连接过程处理逻辑，短连接可以稳定且更高效地断开连接
 - 使用双缓冲区设计，减少日志写入磁盘的频率

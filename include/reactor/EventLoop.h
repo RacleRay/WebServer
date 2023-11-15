@@ -61,6 +61,7 @@ private:
 
     int m_wakeup_fd;  // 每个线程一个 wakeup fd，用于唤醒线程处理对应线程的 m_pending_functors
 
+    // 这个锁，是对本线程内任务队列的读写锁
     mutable Mutex m_mutex;
     
     const pid_t m_thread_id;

@@ -43,7 +43,8 @@ private:
     std::string m_filename;
 
     Thread m_thread{[this]()->void {this->thread_func();}, "Logging"};
-    Mutex m_mutex{};
+    // 注意这里的 mutable 是合理的，试想一下，一个成员读操作应该是const的，但是需要加锁修改。
+    mutable Mutex m_mutex{};
     Condition m_cond{m_mutex};
 
     BufferPtr m_cur_buf{new Buffer};

@@ -19,7 +19,7 @@ private:
 
     EventLoop* m_loop{nullptr};
     Thread m_thread;
-    Mutex m_mutex{};
+    mutable Mutex m_mutex{};
     Condition m_cond;
 
     bool is_exiting{false};
