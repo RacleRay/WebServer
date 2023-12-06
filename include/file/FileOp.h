@@ -15,6 +15,10 @@ public:
     explicit FileOpBase(const std::string& filename);
     ~FileOpBase();
 
+    FileOpBase(const FileOpBase& a) {
+    
+    }
+
     // write to file buffer
     void append(const char* logline, size_t len);
     // write to file storage
